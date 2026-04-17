@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build LOB Demo",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-pedantic",
+        "main.cpp",
+        "OrderBook.CPP",
+        "-o",
+        "lob_demo.exe"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "Run LOB Demo",
+      "type": "shell",
+      "command": ".\\lob_demo.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build and Run LOB Demo",
+      "dependsOn": [
+        "Build LOB Demo",
+        "Run LOB Demo"
+      ],
+      "dependsOrder": "sequence"
+    }
+  ]
+}
