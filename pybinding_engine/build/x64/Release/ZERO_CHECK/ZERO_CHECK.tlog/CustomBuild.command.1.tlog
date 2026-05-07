@@ -1,0 +1,10 @@
+^C:\USERS\JANAV\DESKTOP\PERSONAL PROJECTS\LIMIT_ORDER_BOOK\PYBINDING_ENGINE\BUILD\CMAKEFILES\F1B5AEA5EA4649C94E12C189118DAE2C\GENERATE.STAMP.RULE
+setlocal
+C:\Users\Janav\AppData\Local\Programs\Python\Python314\Lib\site-packages\cmake\data\bin\cmake.exe "-SC:/Users/Janav/Desktop/Personal Projects/Limit_Order_Book/pybinding_engine" "-BC:/Users/Janav/Desktop/Personal Projects/Limit_Order_Book/pybinding_engine/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "C:/Users/Janav/Desktop/Personal Projects/Limit_Order_Book/pybinding_engine/build/lob_engine.sln"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

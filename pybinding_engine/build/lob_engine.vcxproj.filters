@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\Janav\Desktop\Personal Projects\Limit_Order_Book\pybinding_engine\bindings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Janav\Desktop\Personal Projects\Limit_Order_Book\pybinding_engine\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{2232C6E7-83F3-35AF-937C-37AC1B8CA9C3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

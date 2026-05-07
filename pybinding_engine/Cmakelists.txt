@@ -1,0 +1,292 @@
+# ==============================================================================
+# CMakeLists.txt
+# Builds the lob_engine Python extension module via pybind11.
+#
+# PREREQUISITES
+# ─────────────
+#   1. pybind11 installed (any of the three methods below work):
+#        pip install pybind11          ← easiest for venv/conda users
+#        conda install -c conda-forge pybind11
+#        vcpkg install pybind11
+#
+#   2. A C++17-capable compiler:
+#        Linux/macOS : GCC >= 9  or  Clang >= 10
+#        Windows     : MSVC 2019+ (19.14+)  or  Clang-cl
+#
+#   3. Python development headers (python3-dev / python3-devel).
+#
+# BUILD INSTRUCTIONS
+# ──────────────────
+#   # From the project root:
+#   mkdir build && cd build
+#   cmake .. -DCMAKE_BUILD_TYPE=Release
+#   cmake --build . --config Release -j$(nproc)
+#
+#   # The compiled module appears in build/ as:
+#   #   Linux   : lob_engine.cpython-3XX-x86_64-linux-gnu.so
+#   #   macOS   : lob_engine.cpython-3XX-darwin.so
+#   #   Windows : lob_engine.pyd
+#
+#   # Optionally install into your active Python environment:
+#   cmake --install .
+#
+# RUNNING TESTS (after build)
+# ────────────────────────────
+#   cd build
+#   python -c "import lob_engine; print('import OK')"
+#   ctest --output-on-failure      # if you add Python test files below
+#
+# ==============================================================================
+
+cmake_minimum_required(VERSION 3.15)
+
+project(
+    lob_engine
+    VERSION     1.0.0
+    DESCRIPTION "High-performance Limit Order Book Python extension (pybind11)"
+    LANGUAGES   CXX
+)
+
+# ==============================================================================
+# 1. C++ STANDARD
+# ==============================================================================
+
+set(CMAKE_CXX_STANDARD          17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS        OFF)   # Use -std=c++17, not -std=gnu++17.
+
+# ==============================================================================
+# 2. LOCATE PYBIND11
+# ==============================================================================
+#
+#  Priority order for finding pybind11:
+#    a) User supplied  -Dpybind11_DIR=<path>  on the cmake command line.
+#    b) pip-installed pybind11 (pybind11-config --cmakedir).
+#    c) System-installed pybind11 (e.g., via apt / brew / conda).
+#
+#  The `find_package(pybind11 CONFIG REQUIRED)` call handles all three cases
+#  automatically when CMAKE_PREFIX_PATH or pybind11_DIR is set correctly.
+#
+#  TIP — if cmake cannot find pybind11, run:
+#    pip install pybind11
+#    cmake .. -Dpybind11_DIR=$(python -m pybind11 --cmakedir)
+
+# Find Python first so we can locate pybind11's CMake config from the active interpreter.
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
+
+# If pybind11_DIR is not provided, ask the active Python for its cmake directory.
+if(NOT pybind11_DIR OR pybind11_DIR STREQUAL "pybind11_DIR-NOTFOUND")
+    set(pybind11_dir "")
+    set(_pybind11_status 1)
+
+    execute_process(
+        COMMAND "${Python_EXECUTABLE}" -m pybind11 --cmakedir
+        RESULT_VARIABLE _pybind11_status
+        OUTPUT_VARIABLE pybind11_dir
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+
+    if(_pybind11_status AND WIN32)
+        execute_process(
+            COMMAND py -m pybind11 --cmakedir
+            RESULT_VARIABLE _pybind11_status
+            OUTPUT_VARIABLE pybind11_dir
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+    endif()
+
+    if(_pybind11_status)
+        execute_process(
+            COMMAND python -m pybind11 --cmakedir
+            RESULT_VARIABLE _pybind11_status
+            OUTPUT_VARIABLE pybind11_dir
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+    endif()
+
+    if(pybind11_dir)
+        set(pybind11_DIR "${pybind11_dir}" CACHE PATH "Path to pybind11 CMake config" FORCE)
+    else()
+        message(STATUS "pybind11 cmake directory not found. Set -Dpybind11_DIR or install pybind11 into ${Python_EXECUTABLE}.")
+    endif()
+endif()
+
+find_package(pybind11 CONFIG REQUIRED)
+
+# ==============================================================================
+# 3. CORE LIBRARY TARGET  (lob_core)
+# ==============================================================================
+#
+#  We compile the matching engine into a STATIC library first. This keeps
+#  the build graph clean: the Python extension links against lob_core, and
+#  any future C++ test executables can link against it too without recompiling
+#  the engine sources.
+#
+#  OBJECT visibility: we use PRIVATE for compile flags so that downstream
+#  consumers of lob_core can choose their own warning levels.
+
+add_library(lob_core STATIC
+    ../cpp_engine/OrderBook.CPP     # Full implementation of lob::OrderBook and lob::MatchingEngine.
+)
+
+target_include_directories(lob_core
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../cpp_engine   # Exposes OrderBook.H to all dependents.
+)
+
+# ── Compiler warnings ──────────────────────────────────────────────────────────
+target_compile_options(lob_core PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:
+        -Wall -Wextra -Wpedantic
+        -Wno-unused-parameter           # Order params are intentionally named
+    >
+    $<$<CXX_COMPILER_ID:MSVC>:
+        /W4
+        /wd4100                         # Unreferenced formal parameter (same as above)
+    >
+)
+
+# ── Release optimisation flags ─────────────────────────────────────────────────
+#
+#  -O3            : Full loop vectorisation + aggressive inlining.
+#  -march=native  : Enable AVX/SSE instructions for the build machine.
+#                   WARNING: binaries built with this flag are NOT portable.
+#                   Remove -march=native if distributing pre-built wheels.
+target_compile_options(lob_core PRIVATE
+    $<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:Release>>:
+        -O3 -march=native -flto
+    >
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:
+        /O2 /GL
+    >
+)
+
+# ── Link-time optimisation (MSVC) ─────────────────────────────────────────────
+if(MSVC)
+    set_target_properties(lob_core PROPERTIES
+        INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+endif()
+
+
+# ==============================================================================
+# 4. PYTHON EXTENSION MODULE TARGET  (lob_engine)
+# ==============================================================================
+#
+#  pybind11_add_module() is equivalent to add_library(... MODULE) but adds:
+#    - Correct Python include paths and link flags.
+#    - Correct .so/.pyd suffix for the active Python interpreter.
+#    - Strip debug symbols in Release builds (reduces wheel size).
+#    - The WITH_SOABI flag appends the CPython ABI tag (e.g., .cpython-311).
+#
+#  THIN_LTO: enables thin link-time optimisation when the compiler supports it.
+#  Safe to remove if your toolchain does not support it.
+
+pybind11_add_module(lob_engine
+    THIN_LTO            # Link-time optimisation (safe no-op if unsupported).
+    bindings.cpp        # The pybind11 wrapper — contains PYBIND11_MODULE().
+)
+
+# Link the extension against our static core library.
+target_link_libraries(lob_engine PRIVATE lob_core)
+
+# Propagate include path so bindings.cpp can find OrderBook.H.
+target_include_directories(lob_engine PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../cpp_engine
+)
+
+# ── Extension-specific compile flags ──────────────────────────────────────────
+#
+#  -fvisibility=hidden  (GCC/Clang): prevents leakage of C++ symbols into
+#  the Python process, which can cause ODR violations when multiple extensions
+#  are loaded. pybind11_add_module() sets this automatically on GCC/Clang,
+#  but we document it here for clarity.
+#
+#  No additional flags are needed — pybind11_add_module handles the rest.
+
+
+# ==============================================================================
+# 5. VERSION METADATA  (embedded into the module at compile time)
+# ==============================================================================
+#
+#  These definitions are available in C++ as preprocessor macros.
+#  Access them in Python via:   lob_engine.__version__   (if exposed in bindings.cpp)
+
+target_compile_definitions(lob_engine PRIVATE
+    LOB_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    LOB_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    LOB_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+)
+
+
+# ==============================================================================
+# 6. INSTALL RULES
+# ==============================================================================
+#
+#  `cmake --install .` copies the .so/.pyd into the active Python's site-packages.
+#  This is equivalent to running `pip install -e .` for a C extension.
+#
+#  The destination is resolved by pybind11's Python_SITEARCH variable.
+
+install(
+    TARGETS         lob_engine
+    LIBRARY         DESTINATION "${Python_SITEARCH}"
+    RUNTIME         DESTINATION "${Python_SCRIPTS}"
+    COMPONENT       python_extension
+)
+
+
+# ==============================================================================
+# 7. OPTIONAL: STANDALONE C++ DEMO EXECUTABLE
+# ==============================================================================
+#
+#  Uncomment to build main.cpp as a standalone demo that exercises the C++ API
+#  directly (no Python involved). Useful for benchmarking and debugging the
+#  matching engine without the pybind11 layer.
+#
+#  Build with:   cmake --build . --target lob_demo
+
+# add_executable(lob_demo main.cpp)
+# target_link_libraries(lob_demo PRIVATE lob_core)
+
+
+# ==============================================================================
+# 8. OPTIONAL: PYTHON INTEGRATION TESTS  (pytest via CTest)
+# ==============================================================================
+#
+#  Registers a CTest entry that runs pytest in the tests/ directory.
+#  Run with:   ctest --output-on-failure   (from the build directory)
+#
+#  Requires:   pip install pytest
+
+# find_package(Python COMPONENTS Interpreter REQUIRED)
+# enable_testing()
+# add_test(
+#     NAME    pytest_integration
+#     COMMAND ${Python_EXECUTABLE} -m pytest ${CMAKE_SOURCE_DIR}/tests/ -v
+# )
+# set_tests_properties(pytest_integration PROPERTIES
+#     ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}"
+# )
+
+
+# ==============================================================================
+# 9. DIAGNOSTIC SUMMARY
+# ==============================================================================
+#
+#  Print a configuration summary so CI logs are self-documenting.
+
+message(STATUS "")
+message(STATUS "══════════════════════════════════════════════")
+message(STATUS "  lob_engine build configuration")
+message(STATUS "══════════════════════════════════════════════")
+message(STATUS "  Build type        : ${CMAKE_BUILD_TYPE}")
+message(STATUS "  C++ standard      : ${CMAKE_CXX_STANDARD}")
+message(STATUS "  Compiler          : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "  pybind11 version  : ${pybind11_VERSION}")
+message(STATUS "  Python executable : ${PYTHON_EXECUTABLE}")
+message(STATUS "  Install dir       : ${Python_SITEARCH}")
+message(STATUS "══════════════════════════════════════════════")
+message(STATUS "")

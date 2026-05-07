@@ -3,7 +3,9 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "C:/Users/Janav/AppData/Local/Programs/Python/Python314/Include",
+                "C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib/site-packages/pybind11/include"
             ],
             "defines": [
                 "_DEBUG",
