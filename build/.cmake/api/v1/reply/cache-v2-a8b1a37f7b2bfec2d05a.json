@@ -1222,6 +1222,18 @@
 			"value" : "c44f2614bc4b0afeaeae285c5bd1c76b"
 		},
 		{
+			"name" : "_Python_Interpreter_REASON_FAILURE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Interpreter reason failure"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
 			"name" : "_Python_LIBRARY_DEBUG",
 			"properties" : 
 			[

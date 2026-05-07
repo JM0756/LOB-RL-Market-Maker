@@ -351,6 +351,8 @@ _Python_INCLUDE_DIR:INTERNAL=C:/Users/Janav/AppData/Local/Programs/Python/Python
 //Python Properties
 _Python_INTERPRETER_PROPERTIES:INTERNAL=Python;3;14;4;64;<none>;cp314-win_amd64;;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib/site-packages;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib/site-packages
 _Python_INTERPRETER_SIGNATURE:INTERNAL=c44f2614bc4b0afeaeae285c5bd1c76b
+//Interpreter reason failure
+_Python_Interpreter_REASON_FAILURE:INTERNAL=
 //Path to a library.
 _Python_LIBRARY_DEBUG:INTERNAL=_Python_LIBRARY_DEBUG-NOTFOUND
 //Path to a library.
