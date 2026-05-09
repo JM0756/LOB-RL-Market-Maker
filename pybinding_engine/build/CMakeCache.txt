@@ -342,6 +342,8 @@ FIND_PACKAGE_MESSAGE_DETAILS_Python:INTERNAL=[C:/Users/Janav/AppData/Local/Progr
 FIND_PACKAGE_MESSAGE_DETAILS_PythonInterp:INTERNAL=[C:/Users/Janav/AppData/Local/Programs/Python/Python314/python.exe][v3.14.4(3.8)]
 //Test HAS_MSVC_GL_LTCG
 HAS_MSVC_GL_LTCG:INTERNAL=1
+//Python executable during the last CMake run
+PYBIND11_PYTHON_EXECUTABLE_LAST:INTERNAL=C:/Users/Janav/AppData/Local/Programs/Python/Python314/python.exe
 //ADVANCED property for variable: PYTHON_EXECUTABLE
 PYTHON_EXECUTABLE-ADVANCED:INTERNAL=1
 PYTHON_INCLUDE_DIRS:INTERNAL=C:/Users/Janav/AppData/Local/Programs/Python/Python314/Include
@@ -355,7 +357,7 @@ PYTHON_VERSION_MAJOR:INTERNAL=3
 PYTHON_VERSION_MINOR:INTERNAL=14
 Python_ADDITIONAL_VERSIONS:INTERNAL=3.12;3.11;3.10;3.9;3.8
 _PYBIND11_CROSSCOMPILING:INTERNAL=OFF
-_Python:INTERNAL=PYTHON
+_Python:INTERNAL=Python
 //Compiler reason failure
 _Python_Compiler_REASON_FAILURE:INTERNAL=
 _Python_DEVELOPMENT_EMBED_SIGNATURE:INTERNAL=741e00721698b03d5306f39fbf062a40
@@ -371,6 +373,8 @@ _Python_INCLUDE_DIR:INTERNAL=C:/Users/Janav/AppData/Local/Programs/Python/Python
 //Python Properties
 _Python_INTERPRETER_PROPERTIES:INTERNAL=Python;3;14;4;64;<none>;cp314-win_amd64;;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib/site-packages;C:/Users/Janav/AppData/Local/Programs/Python/Python314/Lib/site-packages
 _Python_INTERPRETER_SIGNATURE:INTERNAL=c44f2614bc4b0afeaeae285c5bd1c76b
+//Interpreter reason failure
+_Python_Interpreter_REASON_FAILURE:INTERNAL=
 //Path to a library.
 _Python_LIBRARY_DEBUG:INTERNAL=_Python_LIBRARY_DEBUG-NOTFOUND
 //Path to a library.

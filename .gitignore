@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+**/build/
+pybinding_engine/build/
+
+# CMake outputs
+CMakeCache.txt
+cache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+install_manifest.txt
+
+# Compiled binaries
+*.exe
+*.dll
+*.lib
+*.a
+*.so
+
+# MSVC intermediates and databases
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.ipdb
+*.iobj
+*.exp
+*.pch
+*.tlog
+*.log
+*.suo
+*.user
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.VC.db
+*.VC.VC.opendb
