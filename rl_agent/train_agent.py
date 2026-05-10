@@ -38,8 +38,15 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 import time
+from pathlib import Path
 from typing import Any
+
+# Ensure local modules (MarketMakerEnv, lob_engine) are importable
+_THIS_DIR = Path(__file__).resolve().parent
+if str(_THIS_DIR) not in sys.path:
+    sys.path.insert(0, str(_THIS_DIR))
 
 import numpy as np
 
