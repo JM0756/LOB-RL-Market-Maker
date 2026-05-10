@@ -37,3 +37,18 @@ install_manifest.txt
 *.vcxproj.user
 *.VC.db
 *.VC.VC.opendb
+
+
+
+# RL Agent Output Files
+ppo_market_maker.zip
+ppo_market_maker_vecnorm.pkl
+best_model.zip
+
+# Training Logs & Checkpoints
+logs/
+checkpoints/
+
+# Python Cache (Always good to have)
+__pycache__/
+

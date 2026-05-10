@@ -53,7 +53,7 @@ import numpy as np
 # ── Stable Baselines3 ─────────────────────────────────────────────────────────
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import VecNormalize
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import (
     EvalCallback,
@@ -211,12 +211,7 @@ def train(total_timesteps: int = TOTAL_TIMESTEPS) -> PPO:
     print("=" * 65, "\n")
 
     # ── Vectorised training environment ───────────────────────────────────────
-    train_vec_env = make_vec_env(
-        env_id   = make_env,        # factory; make_vec_env calls it N_ENVS times
-        n_envs   = N_ENVS,
-        seed     = RANDOM_SEED,
-        env_kwargs={"rank": 0},    # rank offset handled inside make_env
-    )
+    train_vec_env = DummyVecEnv([make_env(rank=i) for i in range(N_ENVS)])
 
     # VecNormalize wraps the entire VecEnv.
     # norm_obs=True  : normalise observations using running mean/std.
@@ -241,12 +236,7 @@ def train(total_timesteps: int = TOTAL_TIMESTEPS) -> PPO:
     #  Crucially, we do NOT wrap this env with VecNormalize — instead we
     #  sync its statistics from the training VecNormalize before each eval
     #  via EvalCallback's `eval_env` parameter and `sync_envs_normalization`.
-    eval_vec_env = make_vec_env(
-        env_id   = make_env,
-        n_envs   = 1,
-        seed     = RANDOM_SEED + 1000,   # different seed from training envs
-        env_kwargs={"rank": 100},
-    )
+    eval_vec_env = DummyVecEnv([make_env(rank=100, seed=RANDOM_SEED + 1000)])
     eval_env = VecNormalize(
         eval_vec_env,
         norm_obs    = True,
@@ -481,12 +471,7 @@ def evaluate(
     #  make_vec_env creates a VecEnv with 1 environment. VecNormalize.load()
     #  restores the running mean/std computed during training. Setting
     #  training=False ensures inference doesn't update those statistics.
-    eval_vec_env = make_vec_env(
-        env_id    = make_env,
-        n_envs    = 1,
-        seed      = RANDOM_SEED + 9999,
-        env_kwargs= {"rank": 200},
-    )
+    eval_vec_env = DummyVecEnv([make_env(rank=200, seed=RANDOM_SEED + 9999)])
 
     eval_env_normalised = VecNormalize.load(VECNORM_PATH, eval_vec_env)
     eval_env_normalised.training    = False   # freeze running stats
@@ -531,16 +516,20 @@ def evaluate(
 
         while True:
             # Normalise the observation the same way the training env did.
-            # eval_env_normalised.normalize_obs() applies the saved running stats.
             obs_normalised = eval_env_normalised.normalize_obs(
                 obs.reshape(1, -1).astype(np.float32)
             )
+            
+            # Predict the action
             action, _ = model.predict(obs_normalised, deterministic=True)
+            
+            # Extract the scalar value from the numpy array!
+            scalar_action = int(action.item())
 
-            obs, reward, terminated, truncated, info = unwrapped_env.step(int(action))
+            obs, reward, terminated, truncated, info = unwrapped_env.step(scalar_action)
             total_reward  += reward
             total_steps   += 1
-            action_counts[int(action)] += 1
+            action_counts[scalar_action] += 1
 
             if render_this:
                 unwrapped_env.render()
