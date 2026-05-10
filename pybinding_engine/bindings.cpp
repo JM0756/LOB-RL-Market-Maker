@@ -178,6 +178,46 @@ public:
     }
 
     // -------------------------------------------------------------------------
+    // findOrder — O(1) order lookup by ID
+    // -------------------------------------------------------------------------
+    //
+    //  Forwards directly to lob::OrderBook::findOrder(), which returns a raw
+    //  pointer into the std::list<Order> node that lives inside the C++ book.
+    //
+    //  OWNERSHIP CONTRACT (critical for pybind11 binding):
+    //  ────────────────────────────────────────────────────
+    //  The Order object is owned exclusively by the C++ engine — specifically,
+    //  it lives inside a std::list<Order> node within a PriceLevel, which is
+    //  itself owned by PyOrderBook::book_. Python must NEVER free or take
+    //  ownership of this memory. We enforce this by binding with:
+    //
+    //      py::return_value_policy::reference
+    //
+    //  This tells pybind11: "hand Python a view of the C++ object; do NOT
+    //  generate a destructor call when the Python reference goes out of scope."
+    //
+    //  LIFETIME GUARANTEE:
+    //  The returned pointer (and therefore the Python object it backs) is valid
+    //  only as long as the order remains in the book (i.e., it has not been
+    //  filled, cancelled, or had its list node erased). The caller must not
+    //  cache the returned object across step() boundaries — re-query each time.
+    //  Returning nullptr (→ Python None) is the engine's signal that the order
+    //  is no longer live.
+    //
+    //  WHY NOT reference_internal?
+    //  py::return_value_policy::reference_internal would additionally tie the
+    //  lifetime of the returned Python object to the parent (the PyOrderBook),
+    //  preventing the book from being garbage-collected while a dangling Order
+    //  reference exists. That extra safety net is appropriate for long-lived
+    //  cached references. Here the caller pattern is:
+    //      order = book.find_order(oid)   # ephemeral — used and discarded
+    //  So plain `reference` is the correct, lighter-weight choice.
+
+    const lob::Order* findOrder(lob::OrderId order_id) const noexcept {
+        return book_.findOrder(order_id);
+    }
+
+    // -------------------------------------------------------------------------
     // getTopVolumes — primary RL observation builder
     // -------------------------------------------------------------------------
     //
@@ -478,6 +518,68 @@ PYBIND11_MODULE(lob_engine, m) {
         .def("total_order_count",
             &PyOrderBook::totalOrderCount,
             "Total number of resting orders across both sides of the book.")
+
+        // ── find_order ────────────────────────────────────────────────────────
+        //
+        //  RETURN VALUE POLICY: py::return_value_policy::reference
+        //  ──────────────────────────────────────────────────────────
+        //  findOrder() returns a raw `const Order*` that points directly into a
+        //  std::list<Order> node inside the C++ engine. There are three possible
+        //  ownership policies pybind11 could apply:
+        //
+        //  Policy                  | What it does
+        //  ──────────────────────  | ────────────────────────────────────────────
+        //  copy (default)          | Copies the Order into a new Python-owned object.
+        //                          | Safe but WRONG here: nullptr cannot be copied,
+        //                          | and the copy would not reflect live qty changes.
+        //  take_ownership          | Python's GC would call delete on the pointer.
+        //                          | CATASTROPHIC — the pointer is not heap-allocated
+        //                          | independently; it's a node inside std::list.
+        //  reference               | Python gets a non-owning view. C++ retains full
+        //  ✓ CORRECT               | ownership. nullptr maps to Python None. The Order
+        //                          | object reflects live state (e.g., remaining qty
+        //                          | decreasing as partial fills occur).
+        //  reference_internal      | Same as reference, but additionally prevents the
+        //                          | parent (PyOrderBook) from being GC'd while the
+        //                          | returned Python object is alive. Not needed here
+        //                          | because callers use find_order() ephemerally.
+        //
+        //  USAGE CONTRACT IN MarketMakerEnv.py:
+        //
+        //      order = book.find_order(self._bid_order_id)
+        //      if order is None:
+        //          # Order fully consumed — clear our tracked ID.
+        //          self._bid_order_id = None
+        //      else:
+        //          # Order still resting — order.remaining() gives live qty.
+        //          print(order.remaining())
+        //
+        //  Do NOT store the returned object across step() calls. Once the C++
+        //  engine removes the order (fill or cancel), the pointer is dangling.
+        .def("find_order",
+            &PyOrderBook::findOrder,
+            py::arg("order_id"),
+            py::return_value_policy::reference,
+            "Look up a live resting order by its OrderId.\n\n"
+            "Returns a *non-owning* reference to the Order object that lives\n"
+            "inside the C++ engine. Python must not hold this reference across\n"
+            "step() calls — re-query each time you need current state.\n\n"
+            "Returns None if the order is not found (already filled, cancelled,\n"
+            "or the ID was never issued). This is the primary way to detect\n"
+            "whether a resting quote has been fully consumed:\n\n"
+            "    order = book.find_order(bid_id)\n"
+            "    if order is None:\n"
+            "        bid_id = None  # fully filled or cancelled\n"
+            "    else:\n"
+            "        remaining_qty = order.remaining()  # live partial fill state\n\n"
+            "Args:\n"
+            "    order_id: Integer OrderId returned by a prior add_order() call.\n"
+            "Returns:\n"
+            "    lob.Order | None: Live order view, or None if not in the book.\n\n"
+            "Warning:\n"
+            "    The returned object is a direct reference into C++ memory.\n"
+            "    Do not cache it; do not call it after cancel_order() or after\n"
+            "    the order has been fully filled.")
 
         // ── getTopVolumes — RL Feature Builder ───────────────────────────────
         .def("get_top_volumes",
